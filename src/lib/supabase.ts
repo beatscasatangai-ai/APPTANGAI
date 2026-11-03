@@ -1,15 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
  * `null` keeps the starter UI runnable without credentials. Configure both
- * environment variables before wiring authentication or application data.
+ * environment variables before using authentication or application data.
  */
 export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey)
     : null;
 
 export const isSupabaseConfigured = supabase !== null;

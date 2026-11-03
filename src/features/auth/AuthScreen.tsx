@@ -1,65 +1,222 @@
-import { ArrowRight, CheckCircle2, ChevronLeft, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import Brand from "../../components/Brand";
+import { supabase } from "../../lib/supabase";
+import TurnstileCaptcha from "./TurnstileCaptcha";
 
 type AuthScreenProps = {
   onEnterDemo: () => void;
+  recoveryRequested: boolean;
+  onPasswordUpdated: () => void;
+  initialError?: string;
 };
 
-export default function AuthScreen({ onEnterDemo }: AuthScreenProps) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [submitted, setSubmitted] = useState(false);
-  const [loginNotice, setLoginNotice] = useState(false);
+type AuthMode = "login" | "signup" | "reset";
+
+const captchaSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? "";
+
+export default function AuthScreen({
+  onEnterDemo,
+  recoveryRequested,
+  onPasswordUpdated,
+  initialError,
+}: AuthScreenProps) {
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaVersion, setCaptchaVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(initialError ?? "");
+  const [notice, setNotice] = useState("");
+
+  const screen = recoveryRequested ? "recovery" : mode;
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+
+    if (!supabase) {
+      setError("Falta configurar la URL y la clave pública de Supabase en .env.");
+      return;
+    }
+    if (captchaSiteKey && !captchaToken) {
+      setError("Completa la verificación antibots para continuar.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const captchaOptions = captchaToken ? { captchaToken } : {};
+
+      if (screen === "recovery") {
+        const { error: updateError } = await supabase.auth.updateUser({ password });
+        if (updateError) throw updateError;
+        setPassword("");
+        setNotice("Contraseña actualizada.");
+        onPasswordUpdated();
+      } else if (screen === "reset") {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+          ...captchaOptions,
+        });
+        if (resetError) throw resetError;
+        setNotice("Si la dirección corresponde a una cuenta, recibirás un correo para restablecer la contraseña.");
+      } else if (screen === "signup") {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name.trim() },
+            emailRedirectTo: window.location.origin,
+            ...captchaOptions,
+          },
+        });
+        if (signUpError) throw signUpError;
+        if (!data.session) {
+          setNotice("Cuenta creada. Confirma tu correo; después, el equipo de Tangai tendrá que aprobar el acceso.");
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: captchaOptions,
+        });
+        if (signInError) throw signInError;
+      }
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "No se pudo completar la solicitud.");
+    } finally {
+      setBusy(false);
+      setCaptchaToken("");
+      setCaptchaVersion((version) => version + 1);
+    }
+  }
+
+  function changeMode(nextMode: AuthMode) {
+    setMode(nextMode);
+    setError("");
+    setNotice("");
+  }
 
   return (
     <main className="auth-page">
-      <section className="auth-story">
-        <div className="auth-story-top"><Brand /><span>UNA COMUNIDAD, MÁS CERCA</span></div>
-        <div className="story-content">
-          <div className="story-kicker"><Sparkles size={14} /> La vida de la asociación, en tu bolsillo</div>
-          <h1>Lo que compartimos<br />nos <em>hace comunidad.</em></h1>
-          <p>Tu cartera Tangai reúne tus aportaciones y tus consumiciones. Sencillo, transparente y siempre contigo.</p>
-          <div className="story-note"><span className="note-dot" /><span>Un espacio para las personas que hacen Tangai.</span></div>
-        </div>
-        <div className="story-bottom"><span>ASOCIACIÓN TANGAI</span><span>EST. 2012</span></div>
-      </section>
       <section className="auth-form-side">
-        <div className="auth-form-top"><button className="back-link" type="button"><ChevronLeft size={16} /> Volver a Tangai</button><span className="secure-label"><span /> Acceso seguro</span></div>
         <div className="auth-card">
-          {submitted ? (
+          <Brand />
+          {screen === "recovery" && notice === "Contraseña actualizada." ? (
             <div className="approval-state">
               <span className="approval-icon"><CheckCircle2 size={26} /></span>
-              <p className="eyebrow">SOLICITUD ENVIADA</p>
-              <h2>Ya casi estás en casa.</h2>
-              <p>El equipo de Tangai revisará tu solicitud. Te avisaremos cuando tu cuenta esté aprobada.</p>
-              <button className="primary-button full-button" onClick={() => setSubmitted(false)} type="button">Entendido</button>
+              <h2>Contraseña actualizada</h2>
+              <p>Ya puedes iniciar sesión con tu nueva contraseña.</p>
             </div>
           ) : (
             <>
               <div className="auth-heading">
-                <p className="eyebrow">{mode === "login" ? "QUÉ BUENO VERTE" : "HAZTE SOCIO/A"}</p>
-                <h2>{mode === "login" ? "Bienvenido de vuelta." : "Empieza por aquí."}</h2>
-                <p>{mode === "login" ? "Accede a tu cartera de la Asociación Tangai." : "Crea tu cuenta. El equipo de Tangai validará tu alta."}</p>
+                <h2>
+                  {screen === "recovery" ? "Nueva contraseña" :
+                    screen === "reset" ? "Restablecer contraseña" :
+                      screen === "signup" ? "Crear cuenta" : "Iniciar sesión"}
+                </h2>
               </div>
-              <div className="auth-tabs" role="tablist">
-                <button className={mode === "login" ? "selected" : ""} onClick={() => { setMode("login"); setLoginNotice(false); }} type="button" role="tab">Iniciar sesión</button>
-                <button className={mode === "signup" ? "selected" : ""} onClick={() => { setMode("signup"); setLoginNotice(false); }} type="button" role="tab">Crear cuenta</button>
-              </div>
-              <form className="auth-fields" onSubmit={(event) => { event.preventDefault(); if (mode === "signup") setSubmitted(true); else setLoginNotice(true); }}>
-                {mode === "signup" && <label>Nombre y apellidos<input autoComplete="name" placeholder="Tu nombre" required /></label>}
-                <label>Correo electrónico<input autoComplete="email" placeholder="nombre@ejemplo.com" required type="email" /></label>
-                <label>Contraseña<input autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder="Al menos 8 caracteres" required minLength={8} type="password" /></label>
-                {mode === "login" && <button className="forgot-link" type="button">¿Has olvidado tu contraseña?</button>}
-                <button className="primary-button full-button" type="submit">{mode === "login" ? "Iniciar sesión" : "Solicitar acceso"}<ArrowRight size={17} /></button>
+              {!recoveryRequested && screen !== "reset" && (
+                <div className="auth-tabs" role="tablist" aria-label="Tipo de acceso">
+                  <button
+                    className={screen === "login" ? "selected" : ""}
+                    onClick={() => changeMode("login")}
+                    type="button"
+                    role="tab"
+                    aria-selected={screen === "login"}
+                  >
+                    Iniciar sesión
+                  </button>
+                  <button
+                    className={screen === "signup" ? "selected" : ""}
+                    onClick={() => changeMode("signup")}
+                    type="button"
+                    role="tab"
+                    aria-selected={screen === "signup"}
+                  >
+                    Crear cuenta
+                  </button>
+                </div>
+              )}
+              <form className="auth-fields" onSubmit={handleSubmit}>
+                {screen === "signup" && (
+                  <label>Nombre y apellidos
+                    <input
+                      autoComplete="name"
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Tu nombre"
+                      required
+                      value={name}
+                    />
+                  </label>
+                )}
+                {(screen === "login" || screen === "signup" || screen === "reset") && (
+                  <label>Correo electrónico
+                    <input
+                      autoComplete="email"
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="nombre@ejemplo.com"
+                      required
+                      type="email"
+                      value={email}
+                    />
+                  </label>
+                )}
+                {screen !== "reset" && (
+                  <label>{screen === "recovery" ? "Nueva contraseña" : "Contraseña"}
+                    <input
+                      autoComplete={screen === "login" ? "current-password" : "new-password"}
+                      minLength={8}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Al menos 8 caracteres"
+                      required
+                      type="password"
+                      value={password}
+                    />
+                  </label>
+                )}
+                {screen === "login" && (
+                  <button className="forgot-link" onClick={() => changeMode("reset")} type="button">
+                    ¿Has olvidado tu contraseña?
+                  </button>
+                )}
+                <TurnstileCaptcha
+                  key={captchaVersion}
+                  onError={setError}
+                  onToken={setCaptchaToken}
+                  siteKey={captchaSiteKey}
+                />
+                {error && <p className="auth-notice" role="alert">{error}</p>}
+                {notice && <p className="auth-notice" role="status">{notice}</p>}
+                <button className="primary-button full-button" disabled={busy} type="submit">
+                  {busy ? "Un momento…" :
+                    screen === "signup" ? "Crear cuenta" :
+                      screen === "reset" ? "Enviar enlace" :
+                        screen === "recovery" ? "Guardar contraseña" : "Iniciar sesión"}
+                  {!busy && <ArrowRight size={17} />}
+                </button>
               </form>
-              {loginNotice && <p className="auth-notice" role="status">El inicio de sesión estará disponible cuando se configure Supabase. Mientras tanto, puedes explorar la demostración.</p>}
-              <div className="auth-divider"><span /> o <span /></div>
-              <button className="demo-button" onClick={onEnterDemo} type="button">Explorar la vista de demostración <ArrowRight size={15} /></button>
-              <p className="auth-legal">Al continuar, aceptas las condiciones de uso y la política de privacidad de la asociación.</p>
+              {screen === "login" && (
+                <>
+                  <div className="auth-divider"><span /> o <span /></div>
+                  <button className="demo-button" onClick={onEnterDemo} type="button">
+                    Entrar en modo demostración <ArrowRight size={15} />
+                  </button>
+                </>
+              )}
+              {screen === "reset" && (
+                <button className="forgot-link auth-back-link" onClick={() => changeMode("login")} type="button">
+                  Volver al inicio de sesión
+                </button>
+              )}
             </>
           )}
         </div>
-        <p className="auth-footer">¿Necesitas ayuda? <a href="mailto:hola@tangai.org">Contacta con la asociación</a></p>
       </section>
     </main>
   );

@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Clock3 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { Activity } from "../types";
 
 type ActivityListProps = {
@@ -10,10 +10,8 @@ export default function ActivityList({ activities }: ActivityListProps) {
     <section className="panel activity-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Tu cartera</p>
           <h2>Actividad reciente</h2>
         </div>
-        <button className="text-button" type="button">Ver historial <span>↗</span></button>
       </div>
       <div className="activity-list">
         {activities.map((activity) => {
@@ -26,9 +24,8 @@ export default function ActivityList({ activities }: ActivityListProps) {
               </span>
               <div className="activity-copy">
                 <strong>{activity.title}</strong>
-                <span>{activity.detail}</span>
+                <span>{activity.date}</span>
               </div>
-              <span className="activity-date"><Clock3 size={13} />{activity.date}</span>
               <strong className={`activity-points ${donation ? "positive" : ""}`}>
                 {donation ? "+" : "−"}{Math.abs(activity.points).toLocaleString("es-ES")} pts
               </strong>
