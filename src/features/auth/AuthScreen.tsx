@@ -5,7 +5,6 @@ import { supabase } from "../../lib/supabase";
 import TurnstileCaptcha from "./TurnstileCaptcha";
 
 type AuthScreenProps = {
-  onEnterDemo: () => void;
   recoveryRequested: boolean;
   onPasswordUpdated: () => void;
   initialError?: string;
@@ -16,7 +15,6 @@ type AuthMode = "login" | "signup" | "reset";
 const captchaSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? "";
 
 export default function AuthScreen({
-  onEnterDemo,
   recoveryRequested,
   onPasswordUpdated,
   initialError,
@@ -201,14 +199,6 @@ export default function AuthScreen({
                   {!busy && <ArrowRight size={17} />}
                 </button>
               </form>
-              {screen === "login" && (
-                <>
-                  <div className="auth-divider"><span /> o <span /></div>
-                  <button className="demo-button" onClick={onEnterDemo} type="button">
-                    Entrar en modo demostración <ArrowRight size={15} />
-                  </button>
-                </>
-              )}
               {screen === "reset" && (
                 <button className="forgot-link auth-back-link" onClick={() => changeMode("login")} type="button">
                   Volver al inicio de sesión

@@ -4,7 +4,7 @@ import AppShell from "../components/AppShell";
 import Brand from "../components/Brand";
 import AuthScreen from "../features/auth/AuthScreen";
 import Dashboard from "../features/dashboard/Dashboard";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import type { AppRole } from "../types";
 
 type AccountStatus = "pending" | "approved" | "rejected";
@@ -32,11 +32,9 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profileResult, setProfileResult] = useState<ProfileResult | null>(null);
-  const [isDemo, setIsDemo] = useState(false);
   const [recoveryRequested, setRecoveryRequested] = useState(false);
   const [authError, setAuthError] = useState("");
   const [signOutError, setSignOutError] = useState("");
-  const [role, setRole] = useState<AppRole>("member");
 
   useEffect(() => {
     if (!supabase) {
@@ -48,7 +46,6 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       setSession(nextSession);
-      setIsDemo(false);
       if (event === "PASSWORD_RECOVERY") setRecoveryRequested(true);
       if (event === "SIGNED_OUT") setRecoveryRequested(false);
     });
@@ -73,7 +70,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session || isDemo || !supabase) {
+    if (!session || !supabase) {
       setProfileResult(null);
       return;
     }
@@ -122,15 +119,10 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [session, isDemo]);
+  }, [session]);
 
   async function handleSignOut() {
     setSignOutError("");
-    if (isDemo) {
-      setIsDemo(false);
-      setRole("member");
-      return;
-    }
     if (!supabase) return;
 
     try {
@@ -145,30 +137,21 @@ export default function App() {
     return <main className="auth-page"><p role="status">Conectando…</p></main>;
   }
 
-  if ((!session && !isDemo) || recoveryRequested) {
+  if (!session || recoveryRequested) {
     return (
-      <>
-        <AuthScreen
-          initialError={authError}
-          onEnterDemo={() => setIsDemo(true)}
-          onPasswordUpdated={() => setRecoveryRequested(false)}
-          recoveryRequested={recoveryRequested}
-        />
-        {isDemo && !isSupabaseConfigured && (
-          <div className="configuration-toast">
-            <span className="configuration-dot" />
-            Modo de demostración
-          </div>
-        )}
-      </>
+      <AuthScreen
+        initialError={authError}
+        onPasswordUpdated={() => setRecoveryRequested(false)}
+        recoveryRequested={recoveryRequested}
+      />
     );
   }
 
-  if (session && !isDemo && profileResult?.userId !== session.user.id) {
+  if (profileResult?.userId !== session.user.id) {
     return <main className="auth-page"><p role="status">Comprobando aprobación de la cuenta…</p></main>;
   }
 
-  if (session && !isDemo && profileResult?.error) {
+  if (profileResult?.error) {
     return (
       <AccountNotice
         message={profileResult.error}
@@ -178,7 +161,7 @@ export default function App() {
     );
   }
 
-  if (session && !isDemo && profileResult?.profile?.status !== "approved") {
+  if (profileResult?.profile?.status !== "approved") {
     const rejected = profileResult?.profile?.status === "rejected";
     return (
       <AccountNotice
@@ -191,24 +174,10 @@ export default function App() {
     );
   }
 
-  const effectiveRole = isDemo ? role : profileResult?.profile?.role ?? "member";
-
   return (
-    <>
-      <AppShell
-        isDemo={isDemo}
-        onRoleChange={setRole}
-        onSignOut={handleSignOut}
-        role={effectiveRole}
-        signOutError={signOutError}
-      >
-        <Dashboard role={effectiveRole} />
-      </AppShell>
-      <div className="configuration-toast">
-        <span className="configuration-dot" />
-        {isDemo ? "Modo de demostración · datos de ejemplo" : "Monedero sin conectar · datos de ejemplo"}
-      </div>
-    </>
+    <AppShell onSignOut={handleSignOut} signOutError={signOutError}>
+      <Dashboard role={profileResult.profile.role} />
+    </AppShell>
   );
 }
 

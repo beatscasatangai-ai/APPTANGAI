@@ -14,6 +14,7 @@ export default function ActivityList({ activities }: ActivityListProps) {
         </div>
       </div>
       <div className="activity-list">
+        {activities.length === 0 && <p className="empty-state">Todavía no hay movimientos.</p>}
         {activities.map((activity) => {
           const donation = activity.kind === "donation";
           const Icon = donation ? ArrowDownLeft : ArrowUpRight;
@@ -24,6 +25,7 @@ export default function ActivityList({ activities }: ActivityListProps) {
               </span>
               <div className="activity-copy">
                 <strong>{activity.title}</strong>
+                <span>{activity.detail}</span>
                 <span>{activity.date}</span>
               </div>
               <strong className={`activity-points ${donation ? "positive" : ""}`}>

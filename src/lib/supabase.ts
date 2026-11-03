@@ -13,5 +13,3 @@ export const supabase =
   supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey)
     : null;
-
-export const isSupabaseConfigured = supabase !== null;

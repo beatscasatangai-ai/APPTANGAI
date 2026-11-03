@@ -1,29 +1,29 @@
 # Integration hand-off
 
 ## Backend
-- Project: not scaffolded (Supabase backend setup remains pending).
+- Project: Supabase schema and wallet RPC migrations are present; project
+  credentials and database deployment remain pending.
 - Run/build command, port, health endpoint: none yet.
-- Required server work: auth and member approval; role/RLS enforcement; donation
-  issuance/claim; point ledger; product pricing; voucher issue/redeem; audit.
+- Implemented in SQL: member approval, role/RLS enforcement, point ledger,
+  donation recording, approved-member search and product redemption.
+- Remaining server work: QR/voucher issue/redeem and audit history.
 - No HTTP/Edge Function routes exist yet. Define and inventory them during
   backend integration from the approved project plan.
 
 ## Frontend
 - Project folder: workspace root (`.`).
 - Run: `npm run dev`; build: `npm run build`.
-- Live-data seam: replace `src/api/index.ts` export to use a Supabase-backed
-  client while keeping component call sites stable.
-- Remove after live data is wired: `src/api/mockClient.ts`,
-  `src/data/demo.ts`, and demo role-switcher state/control in
-  `src/app/App.tsx` + `src/components/AppShell.tsx`.
+- Live-data seam: `src/api/index.ts` calls Supabase RPCs and reads the wallet
+  ledger and active product catalog.
+- Demo client, demo data and role-switcher have been removed.
 - Types: `src/types/index.ts`; no separate shared package yet.
 
 ## Data and services
-- Database: Supabase PostgreSQL; migration tool: Supabase CLI; expected
-  migration directory: `supabase/migrations/` (not created yet).
+- Database: Supabase PostgreSQL; migrations are in `supabase/migrations/`.
 - Frontend env placeholders: `VITE_SUPABASE_URL`,
   `VITE_SUPABASE_ANON_KEY` in `.env.example`. Server-only secrets must remain
   in the Supabase Edge Function environment.
-- Essential: React/Vite frontend and Supabase backend (backend not configured).
+- Essential: React/Vite frontend and configured Supabase project.
 - Enhancement: Realtime (not required for initial flows).
-- Create schema and RLS migrations with **NO seed data**.
+- Add products to `wallet_products` in Supabase; the migration intentionally
+  contains **NO seed data**.
